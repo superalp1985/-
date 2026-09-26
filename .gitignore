@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.vite/
+.cache/
+.npmrc
+data/runs/
+data/uploads/
+_tmp/
+*.zip
+*.local
+*.log
