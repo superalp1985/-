@@ -27,9 +27,13 @@
 
 ## 因子拆解专栏
 
-项目内已经开始整理配套的知乎专栏文章：[王大粘因子拆解](articles/知乎专栏/README.md)。
+配套知乎专栏[王大粘因子拆解](articles/知乎专栏/README.md)现有 **8 章、44 篇文章、88 张文章配图**，每篇保留一张手算图和一张真实 DAG 截图，总览图不计入这 88 张。
 
-目前已经完成三章：第一章拆 Alpha158 的 9 个 K 线结构因子，第二章拆 MA、STD、RANK、RSV、MAX、MIN、RSQR、RESI 这 8 组历史窗口因子，第三章拆 ROC、BETA、QTLU、QTLD、IMAX、IMIN、IMXD 这 7 组趋势、分位与极值时点因子。每篇都配有手算示意图和真实 DAG 截图，并分别说明它在算什么、为什么有人这样设计，以及什么情况下容易失效。第三章另列出核对过的 Qlib 源码提交及预热、缺失值口径。
+八章依次讲 K 线结构、历史窗口、趋势分位与极值时点、涨跌次数与幅度、成交量变化、量价相关、价格字段归一化、历史字段序列，篇数为 `9+8+7+6+6+2+4+2`。每篇说明算什么、为什么这样设计、何时失效、画布怎么拆，并提供动手对照。
+
+按家族合写不同窗口和滞后参数，专栏覆盖当前因子库 **Alpha158 的 158 条与 Alpha360 的 360 条，共 518 条已登记特征**。覆盖的是当前这两套特征定义，不代表整个产品或未来规划已经完成；同式或高度相关的特征也不是独立的策略证据。
+
+定义核对固定到 Microsoft Qlib 提交 `be725493eb1a6bbb42bf11b37aa7669f59610ff1` 的 [loader.py](https://github.com/microsoft/qlib/blob/be725493eb1a6bbb42bf11b37aa7669f59610ff1/qlib/contrib/data/loader.py) 与 [ops.py](https://github.com/microsoft/qlib/blob/be725493eb1a6bbb42bf11b37aa7669f59610ff1/qlib/data/ops.py)。导入 Qlib 的滚动节点使用 `min_samples=1`；计数比较后接 `fill_missing(0)`，只把缺失比较结果按假计入，不把缺失价格补零。相关性（CORR、CORD）和趋势拟合度（RSQR）导入时显式使用 `std_tolerance=2e-5`，通用积木的该参数默认是 `0`。
 
 ## 画布预览
 
