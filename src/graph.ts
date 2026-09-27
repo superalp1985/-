@@ -67,6 +67,7 @@ function booleanParameter(node: GraphNode, id: string, fallback: boolean): boole
 function formatParameter(value: ParameterValue): string {
   if (typeof value === 'string') return value
   if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (value !== 0 && Math.abs(value) < 1e-8) return value.toExponential().replace('e+', 'e')
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(8)))
 }
 

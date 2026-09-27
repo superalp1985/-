@@ -79,6 +79,19 @@ describe('factor graph compiler', () => {
     expect(compileGraphExpression(nodesWithParameters, portEdges, settings).expression).toBe('Pow(Close, 3)')
   })
 
+  it('preserves very small constants used to prevent division by zero', () => {
+    const nodesWithSmallConstant = [
+      { id: 'constant', data: { blockId: 'constant', kind: 'input' as const, parameters: { value: 1e-12 } } },
+      { id: 'output', data: { blockId: 'factor_output', kind: 'output' as const } },
+    ]
+    const constantEdges = [
+      { source: 'constant', target: 'output', targetHandle: 'value' },
+    ]
+
+    expect(compileGraphExpression(nodesWithSmallConstant, constantEdges, settings).expression).toBe('1e-12')
+    expect(compileGraphPython(nodesWithSmallConstant, constantEdges, settings)).toContain('return 1e-12')
+  })
+
   it('recognizes the atomically connected demo factor as locally executable', () => {
     expect(isLocalCalculationSupported('Cs_ZScore(Ts_Rank((Close / Open), 7, desc, min_samples=5))')).toBe(true)
     expect(isLocalCalculationSupported('Cs_ZScore(Ts_Mean(Close, 7))')).toBe(false)
