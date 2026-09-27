@@ -115,4 +115,35 @@ describe.skipIf(!available)('Python export data boundaries', () => {
     expect(output.status, output.stderr).toBe(0)
     expect(JSON.parse(output.stdout)).toEqual(calculateGraphFactor(input, edges, nodes, settings).points.map((point) => point.factor))
   })
+
+  it('feeds a conditional numeric result into fill and rolling nodes', () => {
+    const graph = buildFactorGraph(alpha158Factors.find((factor) => factor.name === 'CNTP5')!)
+    const fill = graph.nodes.find((node) => node.data.blockId === 'fill_missing')!
+    const inputEdge = graph.edges.find((edge) => edge.target === fill.id)!
+    const condition = inputEdge.source
+    inputEdge.source = 'numeric-condition'
+    const template = graph.nodes[0]
+    graph.nodes.push(
+      { ...template, id: 'one', data: { ...template.data, blockId: 'constant', parameters: { value: 1 } } },
+      { ...template, id: 'zero', data: { ...template.data, blockId: 'constant', parameters: { value: 0 } } },
+      { ...template, id: 'numeric-condition', data: { ...template.data, blockId: 'where' } },
+    )
+    for (const [source, targetHandle] of [[condition, 'condition'], ['one', 'when_true'], ['zero', 'when_false']]) {
+      graph.edges.push({ id: `numeric-${targetHandle}`, source, target: 'numeric-condition', targetHandle })
+    }
+    const input = [10, 10.4, 10.2, 10.2, 10.8, 10.6].map((close, index) => ({
+      asset: 'A', timestamp: `2026-01-0${index + 1}`, open: 10, close,
+    })).reverse()
+    const code = compileGraphPython(graph.nodes, graph.edges, settings)
+    const output = spawnSync(python, ['-c', [
+      'import sys, json',
+      'payload = json.load(sys.stdin)',
+      'exec(payload["code"])',
+      'df = pd.DataFrame(payload["rows"], index=[7]*len(payload["rows"]))',
+      'result = compute_factor(df)',
+      'print(json.dumps(result.tolist(), allow_nan=False))',
+    ].join('\n')], { encoding: 'utf8', input: JSON.stringify({ code, rows: input }) })
+    expect(output.status, output.stderr).toBe(0)
+    expect(JSON.parse(output.stdout)).toEqual(calculateGraphFactor(input, graph.edges, graph.nodes, settings).points.map((point) => point.factor))
+  })
 })

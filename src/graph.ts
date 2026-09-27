@@ -325,7 +325,7 @@ function compilePythonNode(
     case 'and': compiled = result(`(${expressionAt('left', 'false')} AND ${expressionAt('right', 'false')})`, [...allLines(), `${variable} = ${inputAt('left', 'False')} & ${inputAt('right', 'False')}`]); break
     case 'or': compiled = result(`(${expressionAt('left', 'false')} OR ${expressionAt('right', 'false')})`, [...allLines(), `${variable} = ${inputAt('left', 'False')} | ${inputAt('right', 'False')}`]); break
     case 'not': compiled = result(`(NOT ${expressionAt('condition', 'false')})`, [...allLines(), `${variable} = ~(${inputAt('condition', 'False')})`]); break
-    case 'where': compiled = result(`Where(${expressionAt('condition', 'false')}, ${expressionAt('when_true', 'value')}, ${expressionAt('when_false', 'value')})`, [...allLines(), `${variable} = np.where(${inputAt('condition', 'False')}, ${inputAt('when_true', 'df')}, ${inputAt('when_false', 'df')})`]); break
+    case 'where': compiled = result(`Where(${expressionAt('condition', 'false')}, ${expressionAt('when_true', 'value')}, ${expressionAt('when_false', 'value')})`, [...allLines(), `${variable} = select_values(${inputAt('condition', 'False')}, ${inputAt('when_true', 'df')}, ${inputAt('when_false', 'df')})`]); break
     case 'fill_missing': compiled = result(`FillMissing(${expressionAt('series', 'value')}, ${expressionAt('value', String(numberParameter(node, 'value', 0)))})`, [...allLines(), `${variable} = fill_missing(${inputAt('series', 'df')}, ${inputAt('value', String(numberParameter(node, 'value', 0)))})`]); break
     case 'custom_formula': {
       const customExpression = node.data.customExpression?.trim() || 'x'
