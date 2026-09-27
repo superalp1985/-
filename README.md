@@ -1,5 +1,5 @@
 # 王大粘 · 因子工坊
-(assets/screenshots/yinzi.jpg)
+![因子工坊宣传](assets/screenshots/yinzi.jpg)
 > 把因子研究从“会不会写代码”，还给“有没有想法”。
 
 王大粘 · 因子工坊是一个面向量化研究的**因子学习与创新画布**：用 Scratch / ComfyUI 式的积木和端口，把数学、统计和时序逻辑拆成可以理解、可以调整、可以组合的基本操作。
