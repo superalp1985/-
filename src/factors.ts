@@ -65,9 +65,9 @@ const rollingFeatures: Array<[string, (window: number) => string, string]> = [
   ['QTLD', (window) => `Quantile($close,${window},0.2)/$close`, '历史收盘 20% 分位数相对当前值。'],
   ['RANK', (window) => `Rank($close,${window})`, '当前收盘在历史窗口中的百分位。'],
   ['RSV', (window) => `($close-Min($low,${window}))/(Max($high,${window})-Min($low,${window})+1e-12)`, '当前收盘在历史高低区间中的位置。'],
-  ['IMAX', (window) => `IdxMax($high,${window})/${window}`, '历史最高价距当前的相对位置。'],
-  ['IMIN', (window) => `IdxMin($low,${window})/${window}`, '历史最低价距当前的相对位置。'],
-  ['IMXD', (window) => `(IdxMax($high,${window})-IdxMin($low,${window}))/${window}`, '历史高点与低点位置差。'],
+  ['IMAX', (window) => `IdxMax($high,${window})/${window}`, '最高价首次出现的位置除以窗口长度，位置从最老观测起按 1 编号。'],
+  ['IMIN', (window) => `IdxMin($low,${window})/${window}`, '最低价首次出现的位置除以窗口长度，位置从最老观测起按 1 编号。'],
+  ['IMXD', (window) => `(IdxMax($high,${window})-IdxMin($low,${window}))/${window}`, '高点位置减低点位置再除以窗口长度；正值表示高点晚于低点。'],
   ['CORR', (window) => `Corr($close,Log($volume+1),${window})`, '收盘价与对数成交量的历史相关性。'],
   ['CORD', (window) => `Corr($close/Ref($close,1),Log($volume/Ref($volume,1)+1),${window})`, '价格变化率与对数成交量变化率的历史相关性。'],
   ['CNTP', (window) => `Mean($close>Ref($close,1),${window})`, '窗口内上涨观测的占比。'],
@@ -323,6 +323,9 @@ export function buildFactorGraph(factor: FactorDefinition): BuiltFactorGraph {
     const inputNodes: string[] = []
     const parameters: Record<string, ParameterValue> = {}
     const blockDefinition = getBlockDefinition(blockId)!
+    if (['ts_slope', 'ts_quantile', 'ts_argmax', 'ts_argmin'].includes(blockId)) {
+      parameters.min_samples = 1
+    }
     node.args.forEach((arg, index) => {
       if (arg.kind === 'number') {
         if (blockId === 'ts_quantile' && index === 2) parameters.quantile = arg.value

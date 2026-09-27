@@ -122,8 +122,8 @@ function expressionForNode(node: GraphNode, inputs: Map<string, string>, setting
   const firstPort = getBlockDefinition(blockId)?.inputs[0]?.id ?? 'series'
   const first = inputs.get(firstPort)
   const input = (port: string, fallback: string) => inputs.get(port) ?? fallback
-  const window = numberParameter(node, 'window', settings.window)
-  const minSamples = numberParameter(node, 'min_samples', settings.minSamples)
+  const window = Math.max(2, Math.round(numberParameter(node, 'window', settings.window)))
+  const minSamples = Math.max(1, Math.min(window, Math.round(numberParameter(node, 'min_samples', settings.minSamples))))
   const descending = booleanParameter(node, 'descending', settings.descending)
   const direction = descending ? 'desc' : 'asc'
   const parameterText = (id: string, fallback: ParameterValue) => formatParameter(parameter(node, id, fallback))
@@ -276,8 +276,8 @@ function compilePythonNode(
   const allLines = () => allInputs.flatMap((input) => input.lines)
   const blockId = nodeBlockId(node)
   const variable = preferredVariable(node, blockId)
-  const window = numberParameter(node, 'window', settings.window)
-  const minSamples = numberParameter(node, 'min_samples', settings.minSamples)
+  const window = Math.max(2, Math.round(numberParameter(node, 'window', settings.window)))
+  const minSamples = Math.max(1, Math.min(window, Math.round(numberParameter(node, 'min_samples', settings.minSamples))))
   const descending = booleanParameter(node, 'descending', settings.descending)
   const windowArg = window === settings.window && node.data.parameters?.window === undefined ? 'window' : String(window)
   const minSamplesArg = minSamples === settings.minSamples && node.data.parameters?.min_samples === undefined ? 'min_samples' : String(minSamples)

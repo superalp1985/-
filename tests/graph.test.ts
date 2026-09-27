@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { compileGraphExpression, compileGraphPython, isLocalCalculationSupported } from '../src/graph'
+import { alpha158Factors, buildFactorGraph } from '../src/factors'
 
 const settings = { window: 5, minSamples: 5, descending: true }
 
@@ -140,5 +141,14 @@ describe('factor graph compiler', () => {
     ]
 
     expect(compileGraphPython(stdNodes, stdEdges, settings)).toContain('np.std(values, ddof=1)')
+  })
+
+  it('normalizes edited rolling sample limits like the browser runtime', () => {
+    const graph = buildFactorGraph(alpha158Factors.find((factor) => factor.name === 'QTLU5')!)
+    const quantile = graph.nodes.find((node) => node.data.blockId === 'ts_quantile')!
+    quantile.data.parameters = { window: 5, min_samples: 6, quantile: 0.8 }
+    expect(compileGraphPython(graph.nodes, graph.edges, settings)).toContain('window=5, quantile=0.8, by="asset", min_samples=5)')
+    quantile.data.parameters = { window: 5, min_samples: -1, quantile: 0.8 }
+    expect(compileGraphPython(graph.nodes, graph.edges, settings)).toContain('window=5, quantile=0.8, by="asset", min_samples=1)')
   })
 })

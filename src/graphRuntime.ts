@@ -140,14 +140,16 @@ function rollingUnary(
   window: number,
   minSamples: number,
   operation: (sample: number[]) => number | null,
+  preservePositions = false,
 ): RuntimeVector {
   const input = vector(values, rows.length)
   const result: RuntimeVector = Array.from({ length: rows.length }, () => null)
   for (const indexes of groupedIndices(rows, 'asset')) {
     indexes.forEach((rowIndex, position) => {
       const windowIndexes = indexes.slice(Math.max(0, position - window + 1), position + 1)
-      const sample = windowIndexes.map((index) => numeric(input[index])).filter((value): value is number => value !== null)
-      if (sample.length >= minSamples) result[rowIndex] = operation(sample)
+      const windowValues = windowIndexes.map((index) => numeric(input[index]) ?? Number.NaN)
+      const sample = windowValues.filter(Number.isFinite)
+      if (sample.length >= minSamples) result[rowIndex] = operation(preservePositions ? windowValues : sample)
     })
   }
   return result
@@ -212,12 +214,20 @@ function covariance(left: number[], right: number[]): number | null {
 }
 
 function slope(sample: number[]): number | null {
-  if (sample.length < 2) return null
-  const xMean = (sample.length - 1) / 2
-  const yMean = sample.reduce((sum, value) => sum + value, 0) / sample.length
-  const denominator = sample.reduce((sum, _, index) => sum + (index - xMean) ** 2, 0)
+  const valid = sample.map((value, index) => ({ value, index })).filter(({ value }) => Number.isFinite(value))
+  if (valid.length < 2) return null
+  const xMean = valid.reduce((sum, point) => sum + point.index, 0) / valid.length
+  const yMean = valid.reduce((sum, point) => sum + point.value, 0) / valid.length
+  const denominator = valid.reduce((sum, point) => sum + (point.index - xMean) ** 2, 0)
   if (denominator === 0) return null
-  return sample.reduce((sum, value, index) => sum + (index - xMean) * (value - yMean), 0) / denominator
+  return valid.reduce((sum, point) => sum + (point.index - xMean) * (point.value - yMean), 0) / denominator
+}
+
+function extremePosition(sample: number[], maximum: boolean): number {
+  // Qlib uses raw NumPy argmax/argmin: first tie (or first NaN), then one-based.
+  const missing = sample.findIndex(Number.isNaN)
+  if (missing !== -1) return missing + 1
+  return sample.indexOf(maximum ? Math.max(...sample) : Math.min(...sample)) + 1
 }
 
 function rsquare(sample: number[]): number | null {
@@ -662,10 +672,10 @@ export function calculateGraphFactor(
       case 'ts_quantile': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => quantile(sample, numberParameter(node, 'quantile', 0.8))); break
       case 'ts_corr': value = rollingPair(inputAt('left'), inputAt('right'), rows, window, minSamples, correlation); break
       case 'ts_cov': value = rollingPair(inputAt('left'), inputAt('right'), rows, window, minSamples, covariance); break
-      case 'ts_slope': value = rollingUnary(inputAt('series'), rows, window, minSamples, slope); break
+      case 'ts_slope': value = rollingUnary(inputAt('series'), rows, window, minSamples, slope, true); break
       case 'ts_rsquare': value = rollingUnary(inputAt('series'), rows, window, minSamples, rsquare); break
-      case 'ts_argmax': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => sample.length - 1 - sample.indexOf(Math.max(...sample))); break
-      case 'ts_argmin': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => sample.length - 1 - sample.indexOf(Math.min(...sample))); break
+      case 'ts_argmax': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => extremePosition(sample, true), true); break
+      case 'ts_argmin': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => extremePosition(sample, false), true); break
       case 'ts_skew': value = rollingUnary(inputAt('series'), rows, window, minSamples, skew); break
       case 'ts_kurt': value = rollingUnary(inputAt('series'), rows, window, minSamples, kurtosis); break
       case 'ts_residual': value = rollingUnary(inputAt('series'), rows, window, minSamples, residual); break
