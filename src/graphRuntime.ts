@@ -655,7 +655,7 @@ export function calculateGraphFactor(
       }
       case 'ts_mean': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => sample.reduce((sum, item) => sum + item, 0) / sample.length); break
       case 'ts_sum': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => sample.reduce((sum, item) => sum + item, 0)); break
-      case 'ts_std': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => { const mean = sample.reduce((sum, item) => sum + item, 0) / sample.length; return Math.sqrt(sample.reduce((sum, item) => sum + (item - mean) ** 2, 0) / sample.length) }); break
+      case 'ts_std': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => { if (sample.length < 2) return null; const mean = sample.reduce((sum, item) => sum + item, 0) / sample.length; return Math.sqrt(sample.reduce((sum, item) => sum + (item - mean) ** 2, 0) / (sample.length - 1)) }); break
       case 'ts_min': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => minMax(sample, 'min')); break
       case 'ts_max': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => minMax(sample, 'max')); break
       case 'ts_rank': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => rollingRank(sample, descending)); break

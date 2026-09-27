@@ -31,7 +31,7 @@ export const PYTHON_RUNTIME_HELPERS = [
   `        return _rolling(values, window, by, min_samples, np.sum)`,
   ``,
   `    def rolling_std(values, window, by="asset", min_samples=1):`,
-  `        return _rolling(values, window, by, min_samples, lambda values: np.std(values, ddof=0))`,
+  `        return _rolling(values, window, by, min_samples, lambda values: np.std(values, ddof=1))`,
   ``,
   `    def rolling_min(values, window, by="asset", min_samples=1):`,
   `        return _rolling(values, window, by, min_samples, np.min)`,

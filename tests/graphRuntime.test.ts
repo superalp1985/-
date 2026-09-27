@@ -198,4 +198,23 @@ describe('graph runtime', () => {
     expect(result.points.slice(0, 2).every((point) => point.factor === null)).toBe(true)
     expect(result.points.slice(2).every((point) => Number.isFinite(point.factor ?? Number.NaN))).toBe(true)
   })
+
+  it('matches Qlib rolling standard deviation with the sample denominator', () => {
+    const sourceRows = [1, 2, 3].map((close, index) => ({
+      timestamp: `2026-01-0${index + 1}`,
+      asset: 'A',
+      open: close,
+      close,
+    }))
+    const nodes = [
+      node('close', 'field_close', { kind: 'input' }),
+      node('std', 'ts_std', { parameters: { window: 3, min_samples: 3 } }),
+      node('output', 'factor_output'),
+    ]
+    const edges = [edge('close', 'std', 'series'), edge('std', 'output', 'value')]
+
+    const result = calculateGraphFactor(sourceRows, edges, nodes, settings)
+
+    expect(result.points.map((point) => point.factor)).toEqual([null, null, 1])
+  })
 })

@@ -127,4 +127,18 @@ describe('factor graph compiler', () => {
     expect(code).toContain('rolling_rank(df["close"], window=9, by="asset", min_samples=6, descending=False)')
     expect(code).toContain('base = np.count_nonzero(sample < current) if descending else np.count_nonzero(sample > current)')
   })
+
+  it('exports Qlib-compatible sample standard deviation', () => {
+    const stdNodes = [
+      { id: 'close', data: { blockId: 'field_close', kind: 'input' as const } },
+      { id: 'std', data: { blockId: 'ts_std', kind: 'operator' as const, parameters: { window: 3, min_samples: 3 } } },
+      { id: 'output', data: { blockId: 'factor_output', kind: 'output' as const } },
+    ]
+    const stdEdges = [
+      { source: 'close', target: 'std', targetHandle: 'series' },
+      { source: 'std', target: 'output', targetHandle: 'value' },
+    ]
+
+    expect(compileGraphPython(stdNodes, stdEdges, settings)).toContain('np.std(values, ddof=1)')
+  })
 })

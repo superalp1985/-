@@ -29,6 +29,8 @@ describe('open-source factor catalog', () => {
     expect(alpha158Factors[0]).toMatchObject({ id: 'qlib-alpha158-kmid', name: 'KMID', source: factorSources.qlib })
     expect(alpha158Factors.some((factor) => factor.name === 'CORR60')).toBe(true)
     expect(alpha158Factors.find((factor) => factor.name === 'OPEN')?.expression).toBe('$open/$close')
+    expect(alpha158Factors.find((factor) => factor.name === 'MAX20')?.expression).toBe('Max($high,20)/$close')
+    expect(alpha158Factors.find((factor) => factor.name === 'MIN20')?.expression).toBe('Min($low,20)/$close')
     expect(alpha158Factors.find((factor) => factor.name === 'WVMA20')?.expression).toContain('Std(Abs($close/Ref($close,1)-1)*$volume,20)')
     expect(alpha360Factors.find((factor) => factor.name === 'CLOSE59')?.expression).toBe('Ref($close,59)/$close')
     expect(alpha360Factors.at(-1)?.name).toBe('VOLUME0')
