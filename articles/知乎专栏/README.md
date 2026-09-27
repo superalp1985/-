@@ -30,6 +30,12 @@
 
 [进入第二章](第二章-历史窗口因子/README.md)
 
+### 第三章：趋势、分位与极值时点
+
+继续拆 ROC、BETA、QTLU、QTLD、IMAX、IMIN、IMXD，区分收益率与价格比值、市场贝塔与时间斜率，以及极值位置与距今天的天数。
+
+[进入第三章](第三章-趋势分位与极值时点/README.md)
+
 ## 项目
 
 - GitHub：[王大粘 · 因子工坊](https://github.com/superalp1985/-)
