@@ -26,7 +26,7 @@ const qlibFactor = (
 ): FactorDefinition => ({
   id: `qlib-${family.toLowerCase().replace(/[^a-z0-9]+/g, '')}-${name.toLowerCase()}`,
   name,
-  family,
+  family: family === 'alpha158' ? 'Qlib Alpha158' : 'Qlib Alpha360',
   source: factorSources.qlib,
   expression,
   description,
@@ -86,7 +86,10 @@ const rollingFeatures: Array<[string, (window: number) => string, string]> = [
 
 export const alpha158Factors: FactorDefinition[] = [
   ...alpha158Kline.map(([name, expression, description]) => qlibFactor('alpha158', name, expression, description)),
-  ...alpha158Price.map(([name, expression, description]) => qlibFactor('alpha158', name, expression, description)),
+  ...alpha158Price.map(([name, expression, description]) => ({
+    ...qlibFactor('alpha158', name, expression, `${description} 对应 Qlib 官方字段名 ${name}0，工坊保留简称。`),
+    verification: 'source-transformed' as const,
+  })),
   ...rollingFeatures.flatMap(([name, expression, description]) => [5, 10, 20, 30, 60].map((window) => qlibFactor(
     'alpha158',
     `${name}${window}`,
@@ -315,6 +318,12 @@ export function buildFactorGraph(factor: FactorDefinition): BuiltFactorGraph {
       const definition = getBlockDefinition(binaryBlockId(node.operator))!
       connect(left, current, definition.inputs[0].id)
       connect(right, current, definition.inputs[1].id)
+      if (node.operator === '>' || node.operator === '<') {
+        // NumPy comparisons used by Qlib count missing operands as false.
+        const filled = addNode('fill_missing', { value: 0 }, depth + 2)
+        connect(current, filled, 'series')
+        return filled
+      }
       return current
     }
 
@@ -323,15 +332,17 @@ export function buildFactorGraph(factor: FactorDefinition): BuiltFactorGraph {
     const inputNodes: string[] = []
     const parameters: Record<string, ParameterValue> = {}
     const blockDefinition = getBlockDefinition(blockId)!
-    if (['ts_slope', 'ts_quantile', 'ts_argmax', 'ts_argmin'].includes(blockId)) {
+    if (blockDefinition.parameters.some((item) => item.id === 'min_samples')) {
       parameters.min_samples = 1
     }
+    if (blockId === 'ts_corr' || blockId === 'ts_rsquare') parameters.std_tolerance = 2e-5
     node.args.forEach((arg, index) => {
       if (arg.kind === 'number') {
         if (blockId === 'ts_quantile' && index === 2) parameters.quantile = arg.value
         else if (blockId === 'ts_ref' || blockId === 'ts_delta' || blockId === 'ts_pct_change') parameters.lag = arg.value
         else if (index === 1 && blockDefinition.parameters.some((item) => item.id === 'window')) parameters.window = arg.value
         else if (index === 2 && blockDefinition.parameters.some((item) => item.id === 'window')) parameters.window = arg.value
+        else inputNodes.push(visit(arg, depth))
       } else {
         inputNodes.push(visit(arg, depth))
       }

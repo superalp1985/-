@@ -234,6 +234,7 @@ const logicBlocks: BlockDefinition[] = [
 
 const windowParameter = parameter('window', '窗口长度', '向历史回看多少个观测。', 'number', 5, { min: 2, max: 5000, step: 1 })
 const minSamplesParameter = parameter('min_samples', '最少有效样本', '有效样本不足时输出空值。', 'number', 5, { min: 1, max: 5000, step: 1 })
+const stdToleranceParameter = parameter('std_tolerance', '近常数阈值', '样本标准差不大于此值时输出空值。通用默认 0，Qlib 导入使用 0.00002。', 'number', 0, { min: 0, step: 0.00001 })
 const directionParameter = parameter('descending', '排名方向', '决定数值越大还是越小排名越靠前。', 'select', true, { options: [{ label: '越大越强', value: true }, { label: '越小越强', value: false }] })
 
 const timeSeries = (id: string, title: string, symbol: string, description: string, semantic: string, parameters: BlockParameter[] = [windowParameter, minSamplesParameter]): BlockDefinition => ({
@@ -241,9 +242,9 @@ const timeSeries = (id: string, title: string, symbol: string, description: stri
   inputs: [seriesInput('series', '序列', '沿同一标的的时间顺序计算。')], output: output('value', '结果', 'series', '时序计算结果'), parameters, semantic,
 })
 
-const pairTimeSeries = (id: string, title: string, symbol: string, description: string, semantic: string): BlockDefinition => ({
+const pairTimeSeries = (id: string, title: string, symbol: string, description: string, semantic: string, parameters: BlockParameter[] = [windowParameter, minSamplesParameter]): BlockDefinition => ({
   id, categoryId: 'timeseries', kind: 'operator', title, subtitle: '按标的回看历史', description, accent: '#c99642', symbol,
-  inputs: [seriesInput('left', '序列 A', '第一个历史序列。'), seriesInput('right', '序列 B', '第二个历史序列。')], output: output('value', '结果', 'series', '时序计算结果'), parameters: [windowParameter, minSamplesParameter], semantic,
+  inputs: [seriesInput('left', '序列 A', '第一个历史序列。'), seriesInput('right', '序列 B', '第二个历史序列。')], output: output('value', '结果', 'series', '时序计算结果'), parameters, semantic,
 })
 
 const timeSeriesBlocks: BlockDefinition[] = [
@@ -257,10 +258,10 @@ const timeSeriesBlocks: BlockDefinition[] = [
   timeSeries('ts_max', '时序最大值', 'MAX', '取同一标的历史窗口中的最大值。', 'Max'),
   timeSeries('ts_rank', '时序排名', 'RANK', '把当前值放进同一标的的历史窗口中，输出相对位置。', 'Rank', [windowParameter, minSamplesParameter, directionParameter]),
   timeSeries('ts_quantile', '时序分位数', 'QTL', '取历史窗口中指定分位点的数值，使用线性插值。', 'Quantile', [windowParameter, minSamplesParameter, parameter('quantile', '分位点', '0 到 1 之间，例如 0.8。', 'number', 0.8, { min: 0, max: 1, step: 0.05 })]),
-  pairTimeSeries('ts_corr', '时序相关性', 'CORR', '衡量两个序列在同一标的历史窗口内的相关性。', 'Corr'),
+  pairTimeSeries('ts_corr', '时序相关性', 'CORR', '衡量两个序列在同一标的历史窗口内的相关性。', 'Corr', [windowParameter, minSamplesParameter, stdToleranceParameter]),
   pairTimeSeries('ts_cov', '时序协方差', 'COV', '衡量两个序列在历史窗口内的共同变化。', 'Cov'),
   timeSeries('ts_slope', '趋势斜率', 'SLOPE', '用历史窗口拟合一条直线，输出变化斜率。', 'Slope'),
-  timeSeries('ts_rsquare', '趋势拟合度', 'R²', '输出历史窗口线性趋势的 R²。', 'Rsquare'),
+  timeSeries('ts_rsquare', '趋势拟合度', 'R²', '输出历史窗口线性趋势的 R²。', 'Rsquare', [windowParameter, minSamplesParameter, stdToleranceParameter]),
   timeSeries('ts_argmax', '最大值位置', 'IMAX', '从窗口最老观测起按 1 编号，输出最大值首次出现的位置；须先处理缺失值。', 'IdxMax'),
   timeSeries('ts_argmin', '最小值位置', 'IMIN', '从窗口最老观测起按 1 编号，输出最小值首次出现的位置；须先处理缺失值。', 'IdxMin'),
   timeSeries('ts_skew', '偏度', 'SKEW', '衡量历史窗口分布的左右偏斜程度。', 'Skew'),

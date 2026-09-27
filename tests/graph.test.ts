@@ -31,13 +31,13 @@ describe('factor graph compiler', () => {
     const code = compileGraphPython(nodes, edges, settings)
 
     expect(code).toContain('def compute_factor(df, window=5, min_samples=5, descending=True):')
-    expect(code).toContain('ratio = df["close"] / df["open"]')
+    expect(code).toContain('ratio = safe_divide(df["close"], df["open"])')
     expect(code).toContain('ts_rank = rolling_rank(ratio, window=window, by="asset", min_samples=min_samples, descending=descending)')
     expect(code).toContain('factor_value = cross_sectional_zscore(ts_rank, by="timestamp")')
     expect(code).toContain('import pandas as pd')
     expect(code).toContain('def rolling_rank(values, window, by="asset", min_samples=1, descending=True):')
     expect(code).toContain('def cross_sectional_zscore(values, by="timestamp"):')
-    expect(code).toContain('return factor_value')
+    expect(code).toContain('return restore_output(factor_value)')
   })
 
   it('reports an unsupported block instead of silently inventing its meaning', () => {
@@ -90,7 +90,7 @@ describe('factor graph compiler', () => {
     ]
 
     expect(compileGraphExpression(nodesWithSmallConstant, constantEdges, settings).expression).toBe('1e-12')
-    expect(compileGraphPython(nodesWithSmallConstant, constantEdges, settings)).toContain('return 1e-12')
+    expect(compileGraphPython(nodesWithSmallConstant, constantEdges, settings)).toContain('return restore_output(1e-12)')
   })
 
   it('recognizes the atomically connected demo factor as locally executable', () => {
@@ -140,7 +140,7 @@ describe('factor graph compiler', () => {
       { source: 'std', target: 'output', targetHandle: 'value' },
     ]
 
-    expect(compileGraphPython(stdNodes, stdEdges, settings)).toContain('np.std(values, ddof=1)')
+    expect(compileGraphPython(stdNodes, stdEdges, settings)).toContain('np.std(values[np.isfinite(values)], ddof=1)')
   })
 
   it('normalizes edited rolling sample limits like the browser runtime', () => {

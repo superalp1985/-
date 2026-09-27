@@ -161,7 +161,7 @@ function rollingPair(
   rows: FactorRow[],
   window: number,
   minSamples: number,
-  operation: (left: number[], right: number[]) => number | null,
+  operation: (left: number[], right: number[], leftWindow: number[], rightWindow: number[]) => number | null,
 ): RuntimeVector {
   const leftValues = vector(left, rows.length)
   const rightValues = vector(right, rows.length)
@@ -172,7 +172,11 @@ function rollingPair(
       const pairs = windowIndexes
         .map((index) => [numeric(leftValues[index]), numeric(rightValues[index])] as const)
         .filter((pair): pair is readonly [number, number] => pair[0] !== null && pair[1] !== null)
-      if (pairs.length >= minSamples) result[rowIndex] = operation(pairs.map((pair) => pair[0]), pairs.map((pair) => pair[1]))
+      if (pairs.length >= minSamples) result[rowIndex] = operation(
+        pairs.map((pair) => pair[0]), pairs.map((pair) => pair[1]),
+        windowIndexes.map((index) => numeric(leftValues[index])).filter((value): value is number => value !== null),
+        windowIndexes.map((index) => numeric(rightValues[index])).filter((value): value is number => value !== null),
+      )
     })
   }
   return result
@@ -181,9 +185,11 @@ function rollingPair(
 function rollingRank(sample: number[], descending: boolean): number | null {
   if (!sample.length) return null
   const current = sample[sample.length - 1]
-  const base = sample.filter((value) => descending ? value < current : value > current).length
-  const equal = sample.filter((value) => value === current).length
-  return (base + (equal + 1) / 2) / sample.length
+  if (!Number.isFinite(current)) return null
+  const valid = sample.filter(Number.isFinite)
+  const base = valid.filter((value) => descending ? value < current : value > current).length
+  const equal = valid.filter((value) => value === current).length
+  return (base + (equal + 1) / 2) / valid.length
 }
 
 function quantile(sample: number[], probability: number): number | null {
@@ -204,6 +210,19 @@ function correlation(left: number[], right: number[]): number | null {
   const rightVariance = right.reduce((sum, value) => sum + (value - rightMean) ** 2, 0)
   if (leftVariance === 0 || rightVariance === 0) return null
   return covariance / Math.sqrt(leftVariance * rightVariance)
+}
+
+function sampleStd(sample: number[]): number | null {
+  if (sample.length < 2) return null
+  const mean = sample.reduce((sum, value) => sum + value, 0) / sample.length
+  return Math.sqrt(sample.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (sample.length - 1))
+}
+
+function windowCorrelation(left: number[], right: number[], leftWindow: number[], rightWindow: number[], tolerance: number): number | null {
+  const leftStd = sampleStd(leftWindow)
+  const rightStd = sampleStd(rightWindow)
+  if ((leftStd !== null && leftStd <= tolerance) || (rightStd !== null && rightStd <= tolerance)) return null
+  return correlation(left, right)
 }
 
 function covariance(left: number[], right: number[]): number | null {
@@ -230,9 +249,12 @@ function extremePosition(sample: number[], maximum: boolean): number {
   return sample.indexOf(maximum ? Math.max(...sample) : Math.min(...sample)) + 1
 }
 
-function rsquare(sample: number[]): number | null {
-  if (sample.length < 2) return null
-  const correlationValue = correlation(sample.map((_, index) => index), sample)
+function rsquare(sample: number[], tolerance: number): number | null {
+  const valid = sample.map((value, index) => ({ value, index })).filter(({ value }) => Number.isFinite(value))
+  const values = valid.map((point) => point.value)
+  const std = sampleStd(values)
+  if (std === null || std <= tolerance) return null
+  const correlationValue = correlation(valid.map((point) => point.index), values)
   return correlationValue === null ? null : correlationValue ** 2
 }
 
@@ -258,9 +280,10 @@ function kurtosis(sample: number[]): number | null {
 function residual(sample: number[]): number | null {
   const current = sample.at(-1)
   const trend = slope(sample)
-  if (current === undefined || trend === null) return null
-  const mean = sample.reduce((sum, value) => sum + value, 0) / sample.length
-  const xMean = (sample.length - 1) / 2
+  if (current === undefined || !Number.isFinite(current) || trend === null) return null
+  const valid = sample.map((value, index) => ({ value, index })).filter(({ value }) => Number.isFinite(value))
+  const mean = valid.reduce((sum, point) => sum + point.value, 0) / valid.length
+  const xMean = valid.reduce((sum, point) => sum + point.index, 0) / valid.length
   const intercept = mean - trend * xMean
   return current - (trend * (sample.length - 1) + intercept)
 }
@@ -665,20 +688,20 @@ export function calculateGraphFactor(
       }
       case 'ts_mean': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => sample.reduce((sum, item) => sum + item, 0) / sample.length); break
       case 'ts_sum': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => sample.reduce((sum, item) => sum + item, 0)); break
-      case 'ts_std': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => { if (sample.length < 2) return null; const mean = sample.reduce((sum, item) => sum + item, 0) / sample.length; return Math.sqrt(sample.reduce((sum, item) => sum + (item - mean) ** 2, 0) / (sample.length - 1)) }); break
+      case 'ts_std': value = rollingUnary(inputAt('series'), rows, window, minSamples, sampleStd); break
       case 'ts_min': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => minMax(sample, 'min')); break
       case 'ts_max': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => minMax(sample, 'max')); break
-      case 'ts_rank': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => rollingRank(sample, descending)); break
+      case 'ts_rank': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => rollingRank(sample, descending), true); break
       case 'ts_quantile': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => quantile(sample, numberParameter(node, 'quantile', 0.8))); break
-      case 'ts_corr': value = rollingPair(inputAt('left'), inputAt('right'), rows, window, minSamples, correlation); break
+      case 'ts_corr': value = rollingPair(inputAt('left'), inputAt('right'), rows, window, minSamples, (left, right, leftWindow, rightWindow) => windowCorrelation(left, right, leftWindow, rightWindow, numberParameter(node, 'std_tolerance', 0))); break
       case 'ts_cov': value = rollingPair(inputAt('left'), inputAt('right'), rows, window, minSamples, covariance); break
       case 'ts_slope': value = rollingUnary(inputAt('series'), rows, window, minSamples, slope, true); break
-      case 'ts_rsquare': value = rollingUnary(inputAt('series'), rows, window, minSamples, rsquare); break
+      case 'ts_rsquare': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => rsquare(sample, numberParameter(node, 'std_tolerance', 0)), true); break
       case 'ts_argmax': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => extremePosition(sample, true), true); break
       case 'ts_argmin': value = rollingUnary(inputAt('series'), rows, window, minSamples, (sample) => extremePosition(sample, false), true); break
       case 'ts_skew': value = rollingUnary(inputAt('series'), rows, window, minSamples, skew); break
       case 'ts_kurt': value = rollingUnary(inputAt('series'), rows, window, minSamples, kurtosis); break
-      case 'ts_residual': value = rollingUnary(inputAt('series'), rows, window, minSamples, residual); break
+      case 'ts_residual': value = rollingUnary(inputAt('series'), rows, window, minSamples, residual, true); break
       case 'cs_rank': value = crossSectionRank(inputAt('series'), rows); break
       case 'cs_zscore': value = crossSectionZScore(inputAt('series'), rows); break
       case 'cs_mean': value = crossSectionSimple(inputAt('series'), rows, (sample) => sample.reduce((sum, item) => sum + item, 0) / sample.length); break

@@ -180,10 +180,10 @@ function expressionForNode(node: GraphNode, inputs: Map<string, string>, setting
     case 'ts_max': return `Ts_Max(${first ?? 'MarketData'}, ${window})`
     case 'ts_rank': return `Ts_Rank(${first ?? 'Close / Open'}, ${window}, ${direction}, min_samples=${minSamples})`
     case 'ts_quantile': return `Ts_Quantile(${first ?? 'MarketData'}, ${window}, ${parameterText('quantile', 0.8)})`
-    case 'ts_corr': return `Ts_Corr(${input('left', 'value')}, ${input('right', 'value')}, ${window})`
+    case 'ts_corr': return `Ts_Corr(${input('left', 'value')}, ${input('right', 'value')}, ${window}, std_tolerance=${parameterText('std_tolerance', 0)})`
     case 'ts_cov': return `Ts_Cov(${input('left', 'value')}, ${input('right', 'value')}, ${window})`
     case 'ts_slope': return `Ts_Slope(${first ?? 'MarketData'}, ${window})`
-    case 'ts_rsquare': return `Ts_Rsquare(${first ?? 'MarketData'}, ${window})`
+    case 'ts_rsquare': return `Ts_Rsquare(${first ?? 'MarketData'}, ${window}, std_tolerance=${parameterText('std_tolerance', 0)})`
     case 'ts_argmax': return `Ts_ArgMax(${first ?? 'MarketData'}, ${window})`
     case 'ts_argmin': return `Ts_ArgMin(${first ?? 'MarketData'}, ${window})`
     case 'ts_skew': return `Ts_Skew(${first ?? 'MarketData'}, ${window})`
@@ -299,11 +299,11 @@ function compilePythonNode(
       compiled = { expression: formatParameter(value), reference: formatParameter(value), lines: [] }
       break
     }
-    case 'close_open_ratio': compiled = result('Close / Open', ['ratio = df["close"] / df["open"]'], 'ratio'); break
+    case 'close_open_ratio': compiled = result('Close / Open', ['ratio = safe_divide(df["close"], df["open"])'], 'ratio'); break
     case 'add': compiled = result(`(${expressionAt('left', 'value')} + ${expressionAt('right', 'value')})`, [...allLines(), `${variable} = ${inputAt('left', 'df')} + ${inputAt('right', 'df')}`]); break
     case 'subtract': compiled = result(`(${expressionAt('left', 'value')} - ${expressionAt('right', 'value')})`, [...allLines(), `${variable} = ${inputAt('left', 'df')} - ${inputAt('right', 'df')}`]); break
     case 'multiply': compiled = result(`(${expressionAt('left', 'value')} * ${expressionAt('right', 'value')})`, [...allLines(), `${variable} = ${inputAt('left', 'df')} * ${inputAt('right', 'df')}`]); break
-    case 'divide': compiled = result(`(${expressionAt('left', 'value')} / ${expressionAt('right', 'value')})`, [...allLines(), `${variable} = ${inputAt('left', 'df')} / ${inputAt('right', 'df')}`]); break
+    case 'divide': compiled = result(`(${expressionAt('left', 'value')} / ${expressionAt('right', 'value')})`, [...allLines(), `${variable} = safe_divide(${inputAt('left', 'df')}, ${inputAt('right', 'df')})`]); break
     case 'power': {
       const exponentExpression = expressionAt('right', String(numberParameter(node, 'exponent', 2)))
       const exponentReference = inputAt('right', String(numberParameter(node, 'exponent', 2)))
@@ -312,7 +312,7 @@ function compilePythonNode(
     }
     case 'abs': compiled = result(`Abs(${expressionAt('series', 'value')})`, [...allLines(), `${variable} = np.abs(${inputAt('series', 'df')})`]); break
     case 'negate': compiled = result(`(-${expressionAt('series', 'value')})`, [...allLines(), `${variable} = -(${inputAt('series', 'df')})`]); break
-    case 'log': compiled = result(`Log(${expressionAt('series', 'value')})`, [...allLines(), `${variable} = np.log(${inputAt('series', 'df')})`]); break
+    case 'log': compiled = result(`Log(${expressionAt('series', 'value')})`, [...allLines(), `${variable} = finite_result(np.log(${inputAt('series', 'df')}))`]); break
     case 'exp': compiled = result(`Exp(${expressionAt('series', 'value')})`, [...allLines(), `${variable} = np.exp(${inputAt('series', 'df')})`]); break
     case 'sqrt': compiled = result(`Sqrt(${expressionAt('series', 'value')})`, [...allLines(), `${variable} = np.sqrt(${inputAt('series', 'df')})`]); break
     case 'sign': compiled = result(`Sign(${expressionAt('series', 'value')})`, [...allLines(), `${variable} = np.sign(${inputAt('series', 'df')})`]); break
@@ -326,7 +326,7 @@ function compilePythonNode(
     case 'or': compiled = result(`(${expressionAt('left', 'false')} OR ${expressionAt('right', 'false')})`, [...allLines(), `${variable} = ${inputAt('left', 'False')} | ${inputAt('right', 'False')}`]); break
     case 'not': compiled = result(`(NOT ${expressionAt('condition', 'false')})`, [...allLines(), `${variable} = ~(${inputAt('condition', 'False')})`]); break
     case 'where': compiled = result(`Where(${expressionAt('condition', 'false')}, ${expressionAt('when_true', 'value')}, ${expressionAt('when_false', 'value')})`, [...allLines(), `${variable} = np.where(${inputAt('condition', 'False')}, ${inputAt('when_true', 'df')}, ${inputAt('when_false', 'df')})`]); break
-    case 'fill_missing': compiled = result(`FillMissing(${expressionAt('series', 'value')}, ${expressionAt('value', String(numberParameter(node, 'value', 0)))})`, [...allLines(), `${variable} = ${inputAt('series', 'df')}.fillna(${inputAt('value', String(numberParameter(node, 'value', 0)))})`]); break
+    case 'fill_missing': compiled = result(`FillMissing(${expressionAt('series', 'value')}, ${expressionAt('value', String(numberParameter(node, 'value', 0)))})`, [...allLines(), `${variable} = fill_missing(${inputAt('series', 'df')}, ${inputAt('value', String(numberParameter(node, 'value', 0)))})`]); break
     case 'custom_formula': {
       const customExpression = node.data.customExpression?.trim() || 'x'
       const pythonExpression = customExpression.replace(/\bx\b/g, inputAt('series', 'df'))
@@ -343,10 +343,10 @@ function compilePythonNode(
     case 'ts_max': compiled = result(`Ts_Max(${expressionAt('series', 'MarketData')}, ${window})`, [...allLines(), `${variable} = rolling_max(${inputAt('series', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg})`]); break
     case 'ts_rank': compiled = result(`Ts_Rank(${expressionAt('series', 'Close / Open')}, ${window}, ${descending ? 'desc' : 'asc'}, min_samples=${minSamples})`, [...allLines(), `${variable} = rolling_rank(${inputAt('series', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg}, descending=${descendingArg})`], variable); break
     case 'ts_quantile': compiled = result(`Ts_Quantile(${expressionAt('series', 'MarketData')}, ${window}, ${numberParameter(node, 'quantile', 0.8)})`, [...allLines(), `${variable} = rolling_quantile(${inputAt('series', 'df')}, window=${windowArg}, quantile=${numberParameter(node, 'quantile', 0.8)}, by="asset", min_samples=${minSamplesArg})`]); break
-    case 'ts_corr': compiled = result(`Ts_Corr(${expressionAt('left', 'value')}, ${expressionAt('right', 'value')}, ${window})`, [...allLines(), `${variable} = rolling_corr(${inputAt('left', 'df')}, ${inputAt('right', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg})`]); break
+    case 'ts_corr': compiled = result(`Ts_Corr(${expressionAt('left', 'value')}, ${expressionAt('right', 'value')}, ${window}, std_tolerance=${numberParameter(node, 'std_tolerance', 0)})`, [...allLines(), `${variable} = rolling_corr(${inputAt('left', 'df')}, ${inputAt('right', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg}, std_tolerance=${numberParameter(node, 'std_tolerance', 0)})`]); break
     case 'ts_cov': compiled = result(`Ts_Cov(${expressionAt('left', 'value')}, ${expressionAt('right', 'value')}, ${window})`, [...allLines(), `${variable} = rolling_cov(${inputAt('left', 'df')}, ${inputAt('right', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg})`]); break
     case 'ts_slope': compiled = result(`Ts_Slope(${expressionAt('series', 'MarketData')}, ${window})`, [...allLines(), `${variable} = rolling_slope(${inputAt('series', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg})`]); break
-    case 'ts_rsquare': compiled = result(`Ts_Rsquare(${expressionAt('series', 'MarketData')}, ${window})`, [...allLines(), `${variable} = rolling_rsquare(${inputAt('series', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg})`]); break
+    case 'ts_rsquare': compiled = result(`Ts_Rsquare(${expressionAt('series', 'MarketData')}, ${window}, std_tolerance=${numberParameter(node, 'std_tolerance', 0)})`, [...allLines(), `${variable} = rolling_rsquare(${inputAt('series', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg}, std_tolerance=${numberParameter(node, 'std_tolerance', 0)})`]); break
     case 'ts_argmax': compiled = result(`Ts_ArgMax(${expressionAt('series', 'MarketData')}, ${window})`, [...allLines(), `${variable} = rolling_argmax(${inputAt('series', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg})`]); break
     case 'ts_argmin': compiled = result(`Ts_ArgMin(${expressionAt('series', 'MarketData')}, ${window})`, [...allLines(), `${variable} = rolling_argmin(${inputAt('series', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg})`]); break
     case 'ts_skew': compiled = result(`Ts_Skew(${expressionAt('series', 'MarketData')}, ${window})`, [...allLines(), `${variable} = rolling_skew(${inputAt('series', 'df')}, window=${windowArg}, by="asset", min_samples=${minSamplesArg})`]); break
@@ -392,7 +392,7 @@ export function compileGraphPython(nodes: GraphNode[], edges: GraphEdge[], setti
     `    # Graph expression: ${compiled.expression}`,
     ...warningLines,
     ...compiled.lines.map((line) => `    ${line}`),
-    `    return ${compiled.reference ?? compiled.expression}`,
+    `    return restore_output(${compiled.reference ?? compiled.expression})`,
   ]
   return lines.join('\n')
 }

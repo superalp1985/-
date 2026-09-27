@@ -13,13 +13,17 @@ const rows: FactorRow[] = [10, 10.4, null, 10.8, 10.6, 11].flatMap((close, index
     timestamp: `2026-01-0${index + 1}`, asset: 'A', open: 10, close,
     high: [11, 10.6, 11, null, 10.9, 12][index],
     low: [9.8, 9, null, 9, 10.3, 10.5][index],
+    volume: [100, 120, null, 90, 150, 130][index],
   },
-  { timestamp: `2026-01-0${index + 1}`, asset: 'B', open: 20, close: 20, high: 21, low: 19 },
+  { timestamp: `2026-01-0${index + 1}`, asset: 'B', open: 20, close: 20, high: 21, low: 19, volume: 100 },
 ])
 
 describe.skipIf(!available)('executed framework-free Python window factors (requires numpy/pandas)', () => {
   it.each([
     ...['ROC5', 'BETA5', 'QTLU5', 'QTLD5', 'IMAX5', 'IMIN5', 'IMXD5'].map((name) => ({ name, minSamples: 1 })),
+    ...['MA5', 'STD5', 'RANK5', 'RSQR5', 'RESI5', 'MAX5', 'MIN5', 'VMA5', 'VSTD5', 'WVMA5',
+      'SUMP5', 'SUMN5', 'SUMD5', 'VSUMP5', 'VSUMN5', 'VSUMD5',
+      'CNTP5', 'CNTN5', 'CNTD5', 'CORR5', 'CORD5'].map((name) => ({ name, minSamples: 1 })),
     { name: 'QTLU5', minSamples: 6 },
     { name: 'QTLD5', minSamples: -1 },
   ])(

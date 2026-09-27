@@ -27,6 +27,8 @@ describe('open-source factor catalog', () => {
     expect(alpha158Factors).toHaveLength(158)
     expect(alpha360Factors).toHaveLength(360)
     expect(alpha158Factors[0]).toMatchObject({ id: 'qlib-alpha158-kmid', name: 'KMID', source: factorSources.qlib })
+    expect(alpha158Factors.every((factor) => factor.family === 'Qlib Alpha158')).toBe(true)
+    expect(alpha360Factors.every((factor) => factor.family === 'Qlib Alpha360')).toBe(true)
     expect(alpha158Factors.some((factor) => factor.name === 'CORR60')).toBe(true)
     expect(alpha158Factors.find((factor) => factor.name === 'OPEN')?.expression).toBe('$open/$close')
     expect(alpha158Factors.find((factor) => factor.name === 'MAX20')?.expression).toBe('Max($high,20)/$close')
@@ -62,7 +64,11 @@ describe('open-source factor catalog', () => {
       const graph = buildFactorGraph(factor)
       expect(graph.nodes.at(-1)?.data.blockId, factor.name).toBe('factor_output')
       expect(graph.edges.length, factor.name).toBeGreaterThan(0)
-      expect(graph.nodes.some((node) => node.data.blockId === 'constant' && node.data.parameters?.value === 0), factor.name).toBe(false)
+      const zeroNodes = graph.nodes.filter((node) => node.data.blockId === 'constant' && node.data.parameters?.value === 0)
+      for (const zero of zeroNodes) {
+        expect(graph.edges.some((edge) => edge.source === zero.id && edge.targetHandle === 'right'), factor.name).toBe(true)
+        expect(factor.expression, factor.name).toContain(',0)')
+      }
     }
   })
 })
