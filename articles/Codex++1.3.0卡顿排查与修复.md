@@ -81,7 +81,7 @@ Codex `26.917.9434.0` 改了这里以后，旧逻辑一直找不到稳定结果�
 
 脚本放在仓库里：
 
-[00-codex-asset-rescan-guard.js](../tools/codexplus/00-codex-asset-rescan-guard.js)
+[00-codex-asset-rescan-guard.js](https://github.com/superalp1985/-/blob/main/tools/codexplus/00-codex-asset-rescan-guard.js)
 
 它不是把整个网络请求关掉，也不会修改 Codex 安装目录。它只做三件事：
 
@@ -95,7 +95,7 @@ Codex `26.917.9434.0` 改了这里以后，旧逻辑一直找不到稳定结果�
 
 仓库里有一个 PowerShell 安装脚本：
 
-[install-asset-rescan-guard.ps1](../tools/codexplus/install-asset-rescan-guard.ps1)
+[install-asset-rescan-guard.ps1](https://github.com/superalp1985/-/blob/main/tools/codexplus/install-asset-rescan-guard.ps1)
 
 在项目目录执行：
 
